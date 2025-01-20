@@ -80,7 +80,6 @@ bindkey -e
 # Sourcing automation
 source /home/xrouvell/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source /home/xrouvell/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
-source /home/xrouvell/.brazil_completion/zsh_completion
 
 # Accepts suggestions with ctrl space
 bindkey '^ ' autosuggest-accept
