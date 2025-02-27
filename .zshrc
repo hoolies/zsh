@@ -1,6 +1,9 @@
 # Colors
 autoload -U colors && colors
 
+# xozide
+eval "$(zoxide init zsh)"
+
 # Add highlight enabled tab completion with colors
 zstyle ':completion:*' menu select
 eval "$(dircolors)"
@@ -22,8 +25,10 @@ export FZF_ALT_C_OPTS="
 export TERM=xterm-256color
 
 export PS1="
-%F{red}[%f%F{cyan}%~%f%F{red}]%f
+ %F{cyan}%~%f
  %F{white}%?  "
+
+PS1=$'\n\n\n\n\n\e[6A'"$PS1"
 
 export RPROMPT=
 set-title() {
@@ -60,6 +65,22 @@ _fzf_comprun() {
 }
 
 
+# _fzf_complete_sv(){
+#   local cmd="$1" service
+#   service="$2"
+#   if [[ -n "$cmd" && "$cmd" =~ ^(check|down|exit|force-reload|force-restart|force-shutdown|force-stop|once|reload|restart|shutdown|status|stop|try-restart|up)$ ]]; then
+#     _fzf_coplete -- "$@" < <(
+#       find /etc/sv -maxdepth 1 -mindepth 1 -type d
+#     )
+#   fi
+# }
+
+_fzf_complete_git() {
+  _fzf_complete -- "$@" < <(
+    git --help -a | grep -E '^\s+' | awk '{print $1}'
+  )
+}
+
 # Color for manpages in less makes manpages a little easier to read
 export LESS_TERMCAP_mb=$'\E[01;31m'
 export LESS_TERMCAP_md=$'\E[01;31m'
@@ -68,7 +89,6 @@ export LESS_TERMCAP_se=$'\E[0m'
 export LESS_TERMCAP_so=$'\E[01;44;33m'
 export LESS_TERMCAP_ue=$'\E[0m'
 export LESS_TERMCAP_us=$'\E[01;32m'
-
 
 # Create Aliases for common tasks
 alias ...='cd ../../..'
@@ -79,27 +99,25 @@ alias ll='ls --color -lAthr --group-directories-first'
 alias ls='ls --color -A --group-directories-first'
 alias mac='tail -n +44 /usr/share/wireshark/manuf | fzf'
 
-
 # Emacs support
 bindkey -e
-
 
 # Accepts suggestions with ctrl space
 bindkey '^ ' autosuggest-accept
 
 # History Settings
 HISTFILE=~/.histfile
-HISTSIZE=10000
 HISTFILESIZE=10000
+HISTSIZE=10000
 SAVEHIST=$HISTSIZE
 
 
-setopt BEEP EXTENDED_GLOB NOMATCH
-setopt HIST_IGNORE_SPACE
-setopt HIST_IGNORE_DUPS
 setopt APPEND_HISTORY
-setopt SHARE_HISTORY
+setopt BEEP EXTENDED_GLOB NOMATCH
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
 setopt INC_APPEND_HISTORY
+setopt SHARE_HISTORY
 unsetopt AUTO_CD
 
 
@@ -136,9 +154,11 @@ fi
 
 
 # Sourcing
-source $HOME/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
-source $HOME/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-source $HOME/.zsh/zsh-history-substring-search/zsh-history-substring-search.zsh
+source $HOME/.local/bin/env
 source $HOME/.zsh/fzf-dir-navigator/fzf-dir-navigator.zsh
-source /usr/share/fzf/key-bindings.zsh
+source $HOME/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+source $HOME/.zsh/zsh-history-substring-search/zsh-history-substring-search.zsh
+source $HOME/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source /usr/share/fzf/completion.zsh
+source /usr/share/fzf/key-bindings.zsh
+source <(fzf --zsh)
