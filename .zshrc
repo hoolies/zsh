@@ -81,6 +81,9 @@ _fzf_complete_git() {
   )
 }
 
+# Add an empty line after the output
+precmd() { print "" }
+
 # Color for manpages in less makes manpages a little easier to read
 export LESS_TERMCAP_mb=$'\E[01;31m'
 export LESS_TERMCAP_md=$'\E[01;31m'
