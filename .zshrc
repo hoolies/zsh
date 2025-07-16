@@ -12,6 +12,17 @@ zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 force_color_prompt=yes
 
 # Exports
+
+# Color for manpages in less makes manpages a little easier to read
+export LESS_TERMCAP_mb=$'\E[01;31m'
+export LESS_TERMCAP_md=$'\E[01;31m'
+export LESS_TERMCAP_me=$'\E[0m'
+export LESS_TERMCAP_se=$'\E[0m'
+export LESS_TERMCAP_so=$'\E[01;44;33m'
+export LESS_TERMCAP_ue=$'\E[0m'
+export LESS_TERMCAP_us=$'\E[01;32m'
+
+# Fuzzy
 export FZF_DEFAULT_COMMAND='fd --type f'
 export FZF_DEFAULT_OPTS='--layout=reverse --inline-info'
 
@@ -22,8 +33,10 @@ export FZF_CTRL_T_OPTS="
 export FZF_ALT_C_OPTS="
   --preview 'tree -C {}'"
 
+# Terminal color
 export TERM=xterm-256color
 
+# Terminal Prompt
 export PS1="
  %F{cyan}%~%f
  %F{white}%?  "
@@ -35,23 +48,19 @@ set-title() {
     echo -e "\e]0;$*\007"
 }
 
+# Patch and Editor
 export PATH=$PATH:/usr/local/go/bin
 
-# Functions
-# SSH
-ssh() {
-    set-title $*;
-    /usr/bin/ssh -2 $*;
-    set-title $HOST;
-}
+export EDITOR=nvim
 
+# Functions
 # Fuzzy
 _fzf_compgen_path() {
-    rg --files --glob "!.git" . "$1"
+    rg --files --glob "!.git" . "$1" | fzf --preview 'tree -C {}' "$@"
 }
 
 _fzf_compgen_dir() {
-   fd --type d --hidden --follow --exclude ".git" . "$1"
+   fd --type d --hidden --follow --exclude ".git" . "$1" | fzf --preview 'tree -C {}' "$@"
 }
 
 _fzf_comprun() {
@@ -59,39 +68,78 @@ _fzf_comprun() {
   shift
 
   case "$command" in
-    tree)         find . -type d | fzf --preview 'tree -C {}' "$@";;
-    *)            fzf "$@" ;;
+    cd)         find . -type d | fzf --preview 'tree -C {}' "$@" --border --bind 'ctrl-h:preview-up,ctrl-l:preview-down';;
+    *)          fzf "$@" ;;
   esac
 }
-
-
-# _fzf_complete_sv(){
-#   local cmd="$1" service
-#   service="$2"
-#   if [[ -n "$cmd" && "$cmd" =~ ^(check|down|exit|force-reload|force-restart|force-shutdown|force-stop|once|reload|restart|shutdown|status|stop|try-restart|up)$ ]]; then
-#     _fzf_coplete -- "$@" < <(
-#       find /etc/sv -maxdepth 1 -mindepth 1 -type d
-#     )
-#   fi
-# }
-
-_fzf_complete_git() {
-  _fzf_complete -- "$@" < <(
-    git --help -a | grep -E '^\s+' | awk '{print $1}'
-  )
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
 }
+
+# Overwrite zsh git default autocomplete
+_git_fzf_complete() {
+  local buffer_words=("${(z)LBUFFER}")
+  local subcommand="${buffer_words[2]}"
+
+  # Only proceed if the command starts with `git`
+  [[ ${buffer_words[1]} != git ]] && zle expand-or-complete && return
+
+  # If no subcommand is typed yet, show list of subcommands
+  if [[ -z "$subcommand" ]]; then
+    local selected=$(git help -a 2>/dev/null | \
+      grep -E "^ +[a-zA-Z]" | awk '{print $1}' | sort -u | \
+      fzf --preview 'git help {} 2>/dev/null | less -R -X -K' \
+          --preview-window=right:70% --border --bind 'ctrl-h:preview-up,ctrl-l:preview-down')
+
+    if [[ -n "$selected" ]]; then
+      LBUFFER+=" $selected"
+      zle redisplay
+    fi
+    return
+  fi
+  # Subcommand exists, use `man git-subcommand` to extract options
+  local man_page="git-$subcommand"
+  local options_start="$(($(man $man_page | col -bx | grep -n 'OPTIONS' | cut -d: -f1) + 1))"
+  local options_end="$(man $man_page | col -bx | grep -n 'EXAMPLES' | cut -d: -f1)"
+
+  local selected=$(man "$man_page" 2>/dev/null | col -bx | \
+    sed -n "$options_start,$((${options_end} - 1))p;${options_end}q" | \
+    grep -E '^\s{7}(-{1,2})' | \
+    sed -E 's/^\s*//' | sort -u | fzf \
+      --preview "man $man_page | col -bx | \
+        sed -n "$options_start,$((${options_end} - 1))p;${options_end}q" | \
+        rg --multiline '^\s*$(echo {})'"
+        --preview-window=right:70% --border --bind 'ctrl-h:preview-up,ctrl-l:preview-down')
+
+    # fzf --preview "man $man_page | col -bx | \
+    # sed -n $options_start,$((${options_end} - 1))p;${options_end}q | \
+    # less -R" \
+    #     --preview-window=right:70% --border --bind 'ctrl-h:preview-up,ctrl-l:preview-down')
+
+  if [[ -n "$selected" ]]; then
+    LBUFFER+=" $selected"
+    zle redisplay
+  fi
+}
+zle -N _git_fzf_complete
+
+_git_tab_dispatcher() {
+  if [[ "$LBUFFER" == git* ]]; then
+    _git_fzf_complete
+  else
+    zle expand-or-complete
+  fi
+}
+zle -N _git_tab_dispatcher
+bindkey '^I' _git_tab_dispatcher
+
 
 # Add an empty line after the output
 precmd() { print "" }
-
-# Color for manpages in less makes manpages a little easier to read
-export LESS_TERMCAP_mb=$'\E[01;31m'
-export LESS_TERMCAP_md=$'\E[01;31m'
-export LESS_TERMCAP_me=$'\E[0m'
-export LESS_TERMCAP_se=$'\E[0m'
-export LESS_TERMCAP_so=$'\E[01;44;33m'
-export LESS_TERMCAP_ue=$'\E[0m'
-export LESS_TERMCAP_us=$'\E[01;32m'
 
 # Create Aliases for common tasks
 alias ...='cd ../../..'
